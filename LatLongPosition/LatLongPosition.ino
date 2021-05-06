@@ -1,9 +1,63 @@
 #include "math.h"
 #include <TimeLib.h>
+#include <Servo.h>
+
+// max SERVO pos 140 deg!!
+
+#define STEP_PIN 11
+#define DIR_PIN 12
+#define SERVO_PIN 10
+
+Servo myservo;  // create servo object to control a servo
+float stepper_angle = 0;
+float LT = 0; // local time (hr)
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
+  setTime(1620300099);
+
+  pinMode(STEP_PIN, OUTPUT);
+  pinMode(DIR_PIN, OUTPUT);
+  myservo.attach(SERVO_PIN);  // attaches the servo on pin 12 to the servo object
+}
+
+// set servo angle
+void setServoAngle(float angle) {
+  float safe_angle = 90.0 - angle;
+  if(safe_angle < 0) {
+    safe_angle = 0;
+  }
+  
+  if(safe_angle > 140) {
+    safe_angle = 140;
+  }
+
+  //Serial.println(safe_angle);
+  myservo.write(safe_angle);
+}
+
+void move_stepper_to_angle(float angle) {
+  
+  float angle_diff = angle - stepper_angle;
+
+  if(angle_diff > 0) {
+    digitalWrite(DIR_PIN, LOW);
+  } else {
+    digitalWrite(DIR_PIN, HIGH);
+  }
+  
+  stepper_angle = angle;
+
+  int num_steps = (int)(abs(angle_diff / 1.8));
+
+  for (int i = 0; i < num_steps; i ++) {
+    digitalWrite(STEP_PIN, HIGH);
+    delay(2);
+    digitalWrite(STEP_PIN, LOW);
+    delay(2);
+  }
+  
 }
 
 float radToDeg(float angle) {
@@ -56,8 +110,7 @@ void loop() {
   float latitude = 51.500150;
   float longitude = 1;
   int time_difference = 1;
-  int LT = hour(t); // local time (hr)
-  int d = daysSinceStartOfYear(t); // days since the start of the year
+  int d = 126; // days since the start of the year
  
   // calculating the angles using https://www.pveducation.org/pvcdrom/properties-of-sunlight/the-suns-position
   float latitude_rad = degToRad(latitude);
@@ -73,12 +126,25 @@ void loop() {
   float elevation_deg = radToDeg(elevation_rad);
   float azimuth = acos((sin(declination_rad)*cos(latitude_rad) - cos(declination_rad)*sin(latitude_rad)*cos(HRA))/cos(elevation_rad));
   float azimuth_deg = radToDeg(azimuth);
+
+  //Serial.println("LT " + (String) LT);
+  //Serial.println("TC " + (String) TC);
+  //Serial.println("Days " + (String) d);
+  //Serial.println("declination " + (String) declination);
+  Serial.println("hour " + (String) LT);
+  Serial.println("elevation " + (String) elevation_deg); //54
+  //Serial.println("EoT " + (String) EoT);
+  //Serial.println("LST " + (String) LST);
+  //Serial.println("HRA " + (String) radToDeg(HRA/pi));
+  Serial.println("azimuth " + (String) azimuth_deg); //162
+
+  Serial.println("");
+  setServoAngle(elevation_deg);
+  delay(2000);
   
-  Serial.println(declination);
-  Serial.println(elevation_deg);
-  Serial.println(EoT);
-  Serial.println(LST);
-  Serial.println(radToDeg(HRA/pi));
-  Serial.println(azimuth_deg);
-  
+  move_stepper_to_angle(azimuth_deg);
+
+  delay(3000);
+
+  LT += 1;
 }
