@@ -8,7 +8,7 @@
 
 Servo myservo;  // create servo object to control a servo
 int pos = 0;
-float angle = 150;
+float angle = 0;
 
 void setup() {
   // put your setup code here, to run once:
@@ -16,13 +16,13 @@ void setup() {
   pinMode(DIR_PIN, OUTPUT);
   myservo.attach(SERVO_PIN);  // attaches the servo on pin 12 to the servo object
 
-  delay(3000);
+  //delay(3000);
 
-  move_stepper_to_angle(270);
+  //move_stepper_to_angle(270);
 
-  delay(5000);
+  //delay(5000);
 
-  move_stepper_to_angle(180);
+  //move_stepper_to_angle(180);
 }
 
 // set servo angle
@@ -66,6 +66,7 @@ void move_stepper_to_angle(float angle) {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  //setServoAngle(angle);
-  //delay(1000);
+  angle = 90-angle;
+  setServoAngle(angle);
+  delay(1000);
 }
