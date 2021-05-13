@@ -1,7 +1,7 @@
 #include <SoftwareSerial.h>
 #include <TinyGPS++.h>
 
-SoftwareSerial ss(11, 10);
+SoftwareSerial ss(A3, A2);
 TinyGPSPlus gps;
 
 void setup() {
@@ -13,8 +13,8 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   while (ss.available() > 0)
-    gps.encode(ss.read());
+    Serial.write(ss.read());
 
-  Serial.println(gps.satellites.value());
+  //Serial.println(gps.satellites.value());
 
 }
