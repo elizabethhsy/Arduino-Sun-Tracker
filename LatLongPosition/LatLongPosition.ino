@@ -1,29 +1,52 @@
 #include <PWMServo.h>
 #include "math.h"
-#include <Servo.h>
 #include <SoftwareSerial.h>
 #include <TinyGPS++.h>
+#include <LiquidCrystal.h>
 
 // max SERVO pos 140 deg!!
 
 #define STEP_PIN 11
 #define DIR_PIN 12
+#define EN_PIN A0
 #define SERVO_PIN 10
 
 SoftwareSerial ss(A3, A2);
 TinyGPSPlus gps;
 PWMServo myservo;  // create servo object to control a servo
+LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
 float stepper_angle = 0;
-float LT = 0;
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
-  //ss.begin(9600);
+  ss.begin(9600);
 
   pinMode(STEP_PIN, OUTPUT);
   pinMode(DIR_PIN, OUTPUT);
+  pinMode(EN_PIN, OUTPUT);
+
+  digitalWrite(EN_PIN, HIGH);
+  
   myservo.attach(SERVO_PIN_B);  // attaches the servo on pin 12 to the servo object
+
+  //LCD
+  lcd.begin(16, 2);
+
+  pinMode(8, INPUT_PULLUP);
+  pinMode(9, INPUT_PULLUP);
+
+  lcd.clear();
+  lcd.print("Calibrate to");
+  lcd.setCursor(0, 1);
+  lcd.print("North");
+
+  while(digitalRead(8) != LOW) {
+    delay(10);
+  }
+
+  digitalWrite(EN_PIN, LOW);
+  lcd.clear();
 }
 
 // set servo angle
@@ -36,8 +59,6 @@ void setServoAngle(float angle) {
   if(safe_angle > 140) {
     safe_angle = 140;
   }
-
-  Serial.println(safe_angle);
   myservo.write((int) safe_angle);
 }
 
@@ -50,8 +71,6 @@ void move_stepper_to_angle(float angle) {
   } else {
     digitalWrite(DIR_PIN, HIGH);
   }
-  
-  stepper_angle = angle;
 
   int num_steps = (int)(abs(angle_diff / 1.8));
 
@@ -60,6 +79,11 @@ void move_stepper_to_angle(float angle) {
     delay(2);
     digitalWrite(STEP_PIN, LOW);
     delay(2);
+    if(angle_diff < 0) {
+      stepper_angle -= 1.8;
+    } else {
+      stepper_angle += 1.8;
+    }
   }
   
 }
@@ -105,19 +129,21 @@ int daysSinceStartOfYear() {
 }
 
 void loop() {
-  //while (ss.available() > 0)
-    //gps.encode(ss.read());
-  
+  while (ss.available() > 0)
+    gps.encode(ss.read());
+
+    
+  if (gps.time.value() != 0) {
   // put your main code here, to run repeatedly:
   // CONST
   float pi = 3.14159265359;
 
-  //float LT = gps.time.hour() + (float)gps.time.minute()/60.0;
+  float LT = gps.time.hour() + (float)gps.time.minute()/60.0;
   
   // values to input
-  float latitude = 51.500150;
-  float longitude = 1;
-  //int time_difference = 1;
+  float latitude = 51.495385;
+  float longitude = -0.127149;
+  int time_difference = 1;
   int d = daysSinceStartOfYear(); // days since the start of the year
  
   // calculating the angles using https://www.pveducation.org/pvcdrom/properties-of-sunlight/the-suns-position
@@ -155,12 +181,30 @@ void loop() {
   setServoAngle(elevation_deg);
   delay(2000);
   
-  //move_stepper_to_angle(azimuth_deg);
+  move_stepper_to_angle(azimuth_deg);
+
+  //LT = (LT+1);
+  //if (LT >= 24) {
+  //  LT -= 24;
+  //}
+  
+  lcd.clear();
+  lcd.print("Azimuth: " + (String) azimuth_deg);
+  lcd.setCursor(0, 1);
+  lcd.print("Elevation: " + (String) elevation_deg);
+
+  delay(5000);
+  lcd.clear();
+  lcd.print("Time: " + (String) (gps.time.hour() + time_difference) + ":" + (String) gps.time.minute());
+  //lcd.setCursor(0, 1);
 
   delay(3000);
-
-  LT = (LT+1);
-  if (LT >= 24) {
-    LT -= 24;
+  
+  } else {
+    lcd.clear();
+    lcd.print("GPS can't");
+    lcd.setCursor(0, 1);
+    lcd.print("find time");
+    delay(2000);
   }
 }

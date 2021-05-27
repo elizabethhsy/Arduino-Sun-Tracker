@@ -13,8 +13,9 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   while (ss.available() > 0)
-    gps.encode(ss.read());
+    //gps.encode(ss.read());
+    Serial.write(ss.read());
 
-  Serial.println(gps.time.value());
+  //Serial.println(gps.time.value());
 
 }

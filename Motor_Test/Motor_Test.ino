@@ -12,8 +12,8 @@ float angle = 0;
 
 void setup() {
   // put your setup code here, to run once:
-  pinMode(STEP_PIN, OUTPUT);
-  pinMode(DIR_PIN, OUTPUT);
+  //pinMode(STEP_PIN, OUTPUT);
+  //pinMode(DIR_PIN, OUTPUT);
   myservo.attach(SERVO_PIN);  // attaches the servo on pin 12 to the servo object
 
   //delay(3000);
