@@ -102,7 +102,7 @@ void move_stepper_to_angle(float angle) {
     digitalWrite(DIR_PIN, HIGH);
   }
 
-  // Calculate how many steps (each one 0.1125)
+  // Calculate how many steps (each one is 0.1125 degrees)
   int num_steps = (int)(abs(angle_diff / 0.1125));
 
   // Execute steps and update stepper position
@@ -122,22 +122,20 @@ void move_stepper_to_angle(float angle) {
 
 // Helper functions to convert between degrees and radians
 float radToDeg(float angle) {
-  // CONST
-  float pi = 3.14159265359;
+  const float pi = 3.14159265359;
   
   angle = angle/pi*180;
   return angle;
 }
 
 float degToRad(float angle) {
-  // CONST
-  float pi = 3.14159265359;
+  const float pi = 3.14159265359;
   
   angle = angle/180*pi;
   return angle;
 }
 
-// Functions to calculate the number of days since the start of the year - needed for dun tracking
+// Functions to calculate the number of days since the start of the year - needed for sun tracking
 bool isLeapYear() {
   int yr = gps.date.year();
   if(yr%4 == 0) {
@@ -169,72 +167,78 @@ void loop() {
     gps.encode(ss.read());
 
 
-  // Wait until time data received from the GPS
+  // Only move the needle if time data is available fron the GPS
   if (gps.time.value() != 0) {
-  float pi = 3.14159265359;
-
-  float LT = gps.time.hour() + (float)gps.time.minute()/60.0;
+    float pi = 3.14159265359;
   
-  // Latitude and Longitude hardcoded to be accurate for London (could be automated with better GPS signal)
-  float latitude = 51.495385;
-  float longitude = -0.127149;
-  int time_difference = 1;
-  int d = daysSinceStartOfYear(); // days since the start of the year
- 
-  // Calculating the angles using formulae from https://www.pveducation.org/pvcdrom/properties-of-sunlight/the-suns-position
-  float latitude_rad = degToRad(latitude);
-  //int lstm = 15*time_difference;
-  float B = (2*pi)/365*(d - 81); // angle in radians
-  float EoT = 9.87*sin(2*B)-7.53*cos(B)-1.5*sin(B); // equation of time
-  float TC = 4*(longitude) + EoT; // time correction
-  float LST = LT + TC/60; // local solar time
-  float HRA = degToRad(15*(LST-12)); // hour angle (rad)
-  float declination = 23.45*sin(B); // declination angle
-  float declination_rad = degToRad(declination); // declination angle (rad)
-  float elevation_rad = asin(sin(declination_rad)*sin(latitude_rad) + cos(declination_rad)*cos(latitude_rad)*cos(HRA)); // elevation (rad)
-  float elevation_deg = radToDeg(elevation_rad);
-  float azimuth = acos((sin(declination_rad)*cos(latitude_rad) - cos(declination_rad)*sin(latitude_rad)*cos(HRA))/cos(elevation_rad));
-  float azimuth_deg = radToDeg(azimuth);
+    float LT = gps.time.hour() + (float)gps.time.minute()/60.0;
+    
+    // Latitude and Longitude hardcoded to be accurate for London (could be automated with better GPS signal)
+    float latitude = 51.495385;
+    float longitude = -0.127149;
+    int time_difference = 1;
 
-  // Elevation_deg and azimuth_deg are the angles to point the needle
-  // Correct errors from arccos function if time is past midday
-  if(LT > 12) {
-    azimuth_deg = 360 - azimuth_deg;
-  } 
+    // Calculate number of says since the start of the year
+    int d = daysSinceStartOfYear();
+    
+    // Calculating the angles using formulae from https://www.pveducation.org/pvcdrom/properties-of-sunlight/the-suns-position
+    // Using equation of time, calculate accurate local solar time
+    float latitude_rad = degToRad(latitude);
+    float B = (2*pi)/365*(d - 81); // angle in radians
+    float EoT = 9.87*sin(2*B)-7.53*cos(B)-1.5*sin(B); // equation of time
+    float TC = 4*(longitude) + EoT; // time correction
+    float LST = LT + TC/60; // local solar time
 
-  // Print statements for debugging
+    // Using date and time information to find position of the sun atound the Earth (declination)
+    float HRA = degToRad(15*(LST-12)); // hour angle (rad)
+    float declination = 23.45*sin(B); // declination angle
+    float declination_rad = degToRad(declination); // declination angle (rad)
+
+    // Connvert declination into sky angles for an observer on the ground (elevation and azimuth)
+    float elevation_rad = asin(sin(declination_rad)*sin(latitude_rad) + cos(declination_rad)*cos(latitude_rad)*cos(HRA)); // elevation (rad)
+    float elevation_deg = radToDeg(elevation_rad);
+    float azimuth = acos((sin(declination_rad)*cos(latitude_rad) - cos(declination_rad)*sin(latitude_rad)*cos(HRA))/cos(elevation_rad));
+    float azimuth_deg = radToDeg(azimuth);
   
-  //Serial.println("LT " + (String) LT);
-  //Serial.println("TC " + (String) TC);
-  Serial.println("Days " + (String) d);
-  //Serial.println("declination " + (String) declination);
-  Serial.println("GPS " + (String) gps.time.value());
-  Serial.println("hour " + (String) LT);
-  Serial.println("elevation " + (String) elevation_deg); //54
-  //Serial.println("EoT " + (String) EoT);
-  //Serial.println("LST " + (String) LST);
-  //Serial.println("HRA " + (String) radToDeg(HRA/pi));
-  Serial.println("azimuth " + (String) azimuth_deg); //162
-
-  Serial.println("");
-
-  // Move servo and stepper to desired angle
-  setServoAngle(elevation_deg);
-  delay(2000);
-  move_stepper_to_angle(azimuth_deg);
-
-  // Print angle data and the time to the LCD
-  lcd.clear();
-  lcd.print("Azimuth: " + (String) azimuth_deg);
-  lcd.setCursor(0, 1);
-  lcd.print("Elevation: " + (String) elevation_deg);
-
-  delay(5000);
-  lcd.clear();
-  lcd.print("Time: " + (String) (gps.time.hour() + time_difference) + ":" + (String) gps.time.minute());
-
-  delay(3000);
+    // Elevation_deg and azimuth_deg are the angles to point the needle
+    // Correct errors from arccos function if time is past midday
+    if(LT > 12) {
+      azimuth_deg = 360 - azimuth_deg;
+    } 
   
+    // Serial print statements for debugging
+    
+    //Serial.println("LT " + (String) LT);
+    //Serial.println("TC " + (String) TC);
+    Serial.println("Days " + (String) d);
+    //Serial.println("declination " + (String) declination);
+    Serial.println("GPS " + (String) gps.time.value());
+    Serial.println("hour " + (String) LT);
+    Serial.println("elevation " + (String) elevation_deg);
+    //Serial.println("EoT " + (String) EoT);
+    //Serial.println("LST " + (String) LST);
+    //Serial.println("HRA " + (String) radToDeg(HRA/pi));
+    Serial.println("azimuth " + (String) azimuth_deg);
+  
+    Serial.println("");
+  
+    // Move servo and stepper to desired angle
+    setServoAngle(elevation_deg);
+    delay(2000);
+    move_stepper_to_angle(azimuth_deg);
+  
+    // Print angle data and the time to the LCD
+    lcd.clear();
+    lcd.print("Azimuth: " + (String) azimuth_deg);
+    lcd.setCursor(0, 1);
+    lcd.print("Elevation: " + (String) elevation_deg);
+  
+    delay(5000);
+    lcd.clear();
+    lcd.print("Time: " + (String) (gps.time.hour() + time_difference) + ":" + (String) gps.time.minute());
+  
+    delay(3000);
+    
   } else {
 
     // If GPS time not found, notify the user on the LCD screen
